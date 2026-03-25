@@ -1,0 +1,30 @@
+spring:
+  profiles:
+    active: local
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+jwt:
+  secret: ${JWT_SECRET:local-dev-secret-key-must-be-at-least-256-bits-long-for-hs256}
+  access-token-expiration: 3600000       # 1시간
+  refresh-token-expiration: 604800000    # 7일
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+  api-docs:
+    path: /api-docs
+
+logging:
+  level:
+    org.hibernate.SQL: debug
