@@ -1,5 +1,8 @@
 package com.shoppingmall.domain.order.service;
 
+import com.shoppingmall.domain.cart.dto.CartOrderRequest;
+import com.shoppingmall.domain.cart.entity.Cart;
+import com.shoppingmall.domain.cart.repository.CartRepository;
 import com.shoppingmall.domain.order.dto.OrderRequest;
 import com.shoppingmall.domain.order.dto.OrderResponse;
 import com.shoppingmall.domain.order.entity.Order;
@@ -25,6 +28,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final CartRepository cartRepository;
 
     @Transactional
     public OrderResponse createOrder(Long userId, OrderRequest request) {
@@ -53,6 +57,42 @@ public class OrderService {
         }
 
         return OrderResponse.from(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderResponse createOrderFromCart(Long userId, CartOrderRequest request) {
+        Cart cart = cartRepository.findByUserIdWithItems(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (cart.getCartItems().isEmpty()) {
+            throw new BusinessException(ErrorCode.CART_EMPTY);
+        }
+
+        User user = cart.getUser();
+
+        Order order = Order.builder()
+                .user(user)
+                .receiverName(request.receiverName())
+                .receiverPhone(request.receiverPhone())
+                .address(request.address())
+                .build();
+
+        for (var cartItem : cart.getCartItems()) {
+            Product product = productRepository.findByIdWithPessimisticLock(cartItem.getProduct().getId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+
+            OrderItem orderItem = OrderItem.builder()
+                    .order(order)
+                    .product(product)
+                    .quantity(cartItem.getQuantity())
+                    .build();
+
+            order.addOrderItem(orderItem);
+        }
+
+        OrderResponse response = OrderResponse.from(orderRepository.save(order));
+        cart.clear();
+        return response;
     }
 
     public Page<OrderResponse> getMyOrders(Long userId, Pageable pageable) {

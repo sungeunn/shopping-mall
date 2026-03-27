@@ -1,8 +1,11 @@
 package com.shoppingmall.domain.cart.controller;
 
+import com.shoppingmall.domain.cart.dto.CartOrderRequest;
 import com.shoppingmall.domain.cart.dto.CartRequest;
 import com.shoppingmall.domain.cart.dto.CartResponse;
 import com.shoppingmall.domain.cart.service.CartService;
+import com.shoppingmall.domain.order.dto.OrderResponse;
+import com.shoppingmall.domain.order.service.OrderService;
 import com.shoppingmall.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class CartController {
 
     private final CartService cartService;
+    private final OrderService orderService;
 
     @Operation(summary = "장바구니 조회")
     @GetMapping
@@ -56,5 +60,13 @@ public class CartController {
     public ApiResponse<Void> clearCart(@AuthenticationPrincipal Long userId) {
         cartService.clearCart(userId);
         return ApiResponse.ok("장바구니가 비워졌습니다.");
+    }
+
+    @Operation(summary = "장바구니 상품 바로 주문하기")
+    @PostMapping("/order")
+    public ApiResponse<OrderResponse> orderFromCart(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody CartOrderRequest request) {
+        return ApiResponse.ok(orderService.createOrderFromCart(userId, request));
     }
 }
