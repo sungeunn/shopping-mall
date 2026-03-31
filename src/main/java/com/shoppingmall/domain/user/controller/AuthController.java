@@ -41,6 +41,12 @@ public class AuthController {
         return ApiResponse.ok(authService.reissue(refreshToken));
     }
 
+    @Operation(summary = "이메일 중복 체크")
+    @GetMapping("/check-email")
+    public ApiResponse<Boolean> checkEmail(@RequestParam String email) {
+        return ApiResponse.ok(authService.isEmailAvailable(email));
+    }
+
     @Operation(summary = "로그아웃")
     @PostMapping("/logout")
     public ApiResponse<Void> logout(@AuthenticationPrincipal Long userId) {

@@ -96,6 +96,10 @@ public class AuthService {
         return TokenResponse.of(newAccessToken, newRefreshToken);
     }
 
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
+    }
+
     @Transactional
     public void logout(Long userId) {
         redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);

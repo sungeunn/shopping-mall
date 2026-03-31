@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -112,6 +113,7 @@ class OrderServiceTest {
         // given
         User anotherUser = User.builder()
                 .email("other@example.com").password("pw").name("다른사람").role(UserRole.ROLE_USER).build();
+        ReflectionTestUtils.setField(anotherUser, "id", 2L); // 다른 유저 ID
 
         Order order = Order.builder()
                 .user(anotherUser)
@@ -121,7 +123,7 @@ class OrderServiceTest {
         given(orderRepository.findByIdWithItems(1L)).willReturn(Optional.of(order));
 
         // when & then
-        assertThatThrownBy(() -> orderService.cancelOrder(1L, 1L))
+        assertThatThrownBy(() -> orderService.cancelOrder(1L, 1L)) // userId = 1L
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining(ErrorCode.ORDER_ACCESS_DENIED.getMessage());
     }
