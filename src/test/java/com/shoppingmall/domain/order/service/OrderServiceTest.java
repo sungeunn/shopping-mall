@@ -7,6 +7,7 @@ import com.shoppingmall.domain.cart.repository.CartRepository;
 import com.shoppingmall.domain.order.dto.OrderRequest;
 import com.shoppingmall.domain.order.dto.OrderResponse;
 import com.shoppingmall.domain.order.entity.Order;
+import com.shoppingmall.domain.order.entity.OrderItem;
 import com.shoppingmall.domain.order.entity.OrderStatus;
 import com.shoppingmall.domain.order.repository.OrderRepository;
 import com.shoppingmall.domain.product.entity.Product;
@@ -71,6 +72,7 @@ class OrderServiceTest {
                 .category("전자기기")
                 .build();
         ReflectionTestUtils.setField(testProduct, "id", 1L);
+        ReflectionTestUtils.setField(testUser, "id", 1L);
     }
 
     @Test
@@ -114,6 +116,44 @@ class OrderServiceTest {
         assertThatThrownBy(() -> orderService.createOrder(1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining(ErrorCode.INSUFFICIENT_STOCK.getMessage());
+    }
+
+    @Test
+    @DisplayName("주문 취소 성공 - PENDING 상태에서 취소 및 재고 복구")
+    void cancelOrder_success() {
+        // given
+        Order order = Order.builder()
+                .user(testUser).receiverName("홍길동").receiverPhone("010-1234-5678").address("서울시 강남구")
+                .build();
+        OrderItem orderItem = OrderItem.builder()
+                .order(order).product(testProduct).quantity(3).build(); // stock: 10 → 7
+        order.addOrderItem(orderItem);
+
+        given(orderRepository.findByIdWithItems(1L)).willReturn(Optional.of(order));
+
+        // when
+        orderService.cancelOrder(1L, 1L);
+
+        // then
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(testProduct.getStock()).isEqualTo(10); // 재고 복구 확인 (7 → 10)
+    }
+
+    @Test
+    @DisplayName("주문 취소 실패 - 취소 불가 상태 (SHIPPED)")
+    void cancelOrder_cannotBeCancelled() {
+        // given
+        Order order = Order.builder()
+                .user(testUser).receiverName("홍길동").receiverPhone("010-1234-5678").address("서울시 강남구")
+                .build();
+        ReflectionTestUtils.setField(order, "status", OrderStatus.SHIPPED);
+
+        given(orderRepository.findByIdWithItems(1L)).willReturn(Optional.of(order));
+
+        // when & then
+        assertThatThrownBy(() -> orderService.cancelOrder(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.ORDER_CANNOT_BE_CANCELLED.getMessage());
     }
 
     @Test
@@ -232,5 +272,67 @@ class OrderServiceTest {
         assertThat(response.items()).hasSize(2);
         assertThat(response.totalPrice()).isEqualTo(1_600_000); // 1_500_000 + 100_000
         assertThat(cart.getCartItems()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("관리자 주문 상태 변경 - 배송중(SHIPPED)")
+    void updateOrderStatus_shipped() {
+        // given
+        Order order = Order.builder()
+                .user(testUser).receiverName("홍길동").receiverPhone("010-1234-5678").address("서울시 강남구")
+                .build();
+
+        given(orderRepository.findByIdWithItems(1L)).willReturn(Optional.of(order));
+
+        // when
+        OrderResponse response = orderService.updateOrderStatus(1L, OrderStatus.SHIPPED);
+
+        // then
+        assertThat(response.status()).isEqualTo(OrderStatus.SHIPPED.name());
+    }
+
+    @Test
+    @DisplayName("관리자 주문 상태 변경 - 배송완료(COMPLETED)")
+    void updateOrderStatus_completed() {
+        // given
+        Order order = Order.builder()
+                .user(testUser).receiverName("홍길동").receiverPhone("010-1234-5678").address("서울시 강남구")
+                .build();
+
+        given(orderRepository.findByIdWithItems(1L)).willReturn(Optional.of(order));
+
+        // when
+        OrderResponse response = orderService.updateOrderStatus(1L, OrderStatus.COMPLETED);
+
+        // then
+        assertThat(response.status()).isEqualTo(OrderStatus.COMPLETED.name());
+    }
+
+    @Test
+    @DisplayName("관리자 주문 상태 변경 실패 - 존재하지 않는 주문")
+    void updateOrderStatus_orderNotFound() {
+        // given
+        given(orderRepository.findByIdWithItems(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> orderService.updateOrderStatus(999L, OrderStatus.SHIPPED))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.ORDER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("관리자 주문 상태 변경 실패 - 허용되지 않는 상태값")
+    void updateOrderStatus_invalidStatus() {
+        // given
+        Order order = Order.builder()
+                .user(testUser).receiverName("홍길동").receiverPhone("010-1234-5678").address("서울시 강남구")
+                .build();
+
+        given(orderRepository.findByIdWithItems(1L)).willReturn(Optional.of(order));
+
+        // when & then
+        assertThatThrownBy(() -> orderService.updateOrderStatus(1L, OrderStatus.PENDING))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.INVALID_INPUT.getMessage());
     }
 }
