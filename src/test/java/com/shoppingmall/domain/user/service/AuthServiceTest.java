@@ -154,4 +154,69 @@ class AuthServiceTest {
         // when & then
         assertThat(authService.isEmailAvailable("test@test.com")).isFalse();
     }
+
+    @Test
+    @DisplayName("토큰 재발급 성공 - 유효한 Refresh Token으로 새 토큰 발급")
+    void reissue_success() {
+        // given
+        String oldRefreshToken = "oldRefreshToken";
+        Long userId = 1L;
+        given(jwtProvider.validateToken(oldRefreshToken)).willReturn(true);
+        given(jwtProvider.getUserId(oldRefreshToken)).willReturn(userId);
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.get("refresh:" + userId)).willReturn(oldRefreshToken);
+        given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
+        given(jwtProvider.createAccessToken(any(), any(), any())).willReturn("newAccessToken");
+        given(jwtProvider.createRefreshToken(any())).willReturn("newRefreshToken");
+
+        // when
+        TokenResponse response = authService.reissue(oldRefreshToken);
+
+        // then
+        assertThat(response.accessToken()).isEqualTo("newAccessToken");
+        assertThat(response.refreshToken()).isEqualTo("newRefreshToken");
+        verify(valueOperations).set(eq("refresh:" + userId), eq("newRefreshToken"), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("토큰 재발급 실패 - 유효하지 않은 Refresh Token")
+    void reissue_invalidToken() {
+        // given
+        given(jwtProvider.validateToken("invalidToken")).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue("invalidToken"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.INVALID_TOKEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("토큰 재발급 실패 - Redis에 저장된 토큰과 불일치 (탈취 감지)")
+    void reissue_tokenMismatch() {
+        // given
+        String token = "myRefreshToken";
+        Long userId = 1L;
+        given(jwtProvider.validateToken(token)).willReturn(true);
+        given(jwtProvider.getUserId(token)).willReturn(userId);
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.get("refresh:" + userId)).willReturn("differentToken");
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(token))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.INVALID_TOKEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("로그아웃 성공 - Redis에서 Refresh Token 삭제")
+    void logout_success() {
+        // given
+        Long userId = 1L;
+
+        // when
+        authService.logout(userId);
+
+        // then
+        verify(redisTemplate).delete("refresh:" + userId);
+    }
 }

@@ -17,7 +17,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.security.test.context.support.WithMockUser;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -125,5 +128,42 @@ class AuthControllerTest {
                         .param("email", "test@test.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value(false));
+    }
+
+    @Test
+    @DisplayName("토큰 재발급 성공 - 새 accessToken/refreshToken 반환")
+    void reissue_success() throws Exception {
+        TokenResponse tokenResponse = TokenResponse.of("newAccessToken", "newRefreshToken");
+        given(authService.reissue(anyString())).willReturn(tokenResponse);
+
+        mockMvc.perform(post("/api/auth/reissue")
+                        .header("Refresh-Token", "validRefreshToken"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("newAccessToken"))
+                .andExpect(jsonPath("$.data.refreshToken").value("newRefreshToken"));
+    }
+
+    @Test
+    @DisplayName("토큰 재발급 실패 - 유효하지 않은 토큰 (401)")
+    void reissue_invalidToken() throws Exception {
+        given(authService.reissue(anyString()))
+                .willThrow(new BusinessException(ErrorCode.INVALID_TOKEN));
+
+        mockMvc.perform(post("/api/auth/reissue")
+                        .header("Refresh-Token", "invalidToken"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(ErrorCode.INVALID_TOKEN.getMessage()));
+    }
+
+    @Test
+    @DisplayName("로그아웃 성공 - 200 반환")
+    @WithMockUser
+    void logout_success() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("로그아웃되었습니다."));
     }
 }
