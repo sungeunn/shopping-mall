@@ -6,6 +6,7 @@ import com.shoppingmall.domain.product.dto.ProductRequest;
 import com.shoppingmall.domain.product.dto.ProductResponse;
 import com.shoppingmall.domain.product.entity.ProductStatus;
 import com.shoppingmall.domain.product.service.ProductService;
+import com.shoppingmall.global.cache.RestPage;
 import com.shoppingmall.global.exception.BusinessException;
 import com.shoppingmall.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +52,7 @@ class ProductControllerTest {
     @DisplayName("상품 목록 조회 - 200 반환")
     void getProducts_success() throws Exception {
         given(productService.getProducts(isNull(), isNull(), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(createProductResponse())));
+                .willReturn(new RestPage<>(new PageImpl<>(List.of(createProductResponse()))));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
