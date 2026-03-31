@@ -7,6 +7,7 @@ import com.shoppingmall.domain.order.dto.OrderRequest;
 import com.shoppingmall.domain.order.dto.OrderResponse;
 import com.shoppingmall.domain.order.entity.Order;
 import com.shoppingmall.domain.order.entity.OrderItem;
+import com.shoppingmall.domain.order.entity.OrderStatus;
 import com.shoppingmall.domain.order.repository.OrderRepository;
 import com.shoppingmall.domain.product.entity.Product;
 import com.shoppingmall.domain.product.repository.ProductRepository;
@@ -121,5 +122,19 @@ public class OrderService {
         }
 
         order.cancel();
+    }
+
+    @Transactional
+    public OrderResponse updateOrderStatus(Long orderId, OrderStatus status) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        switch (status) {
+            case SHIPPED -> order.ship();
+            case COMPLETED -> order.complete();
+            default -> throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        return OrderResponse.from(order);
     }
 }
