@@ -1,12 +1,16 @@
 package com.shoppingmall.global.exception;
 
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -36,6 +40,22 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/missing-header")
         public void requireHeader(@RequestHeader("X-Required-Header") String header) {}
+
+        @GetMapping("/missing-param")
+        public void requireParam(@RequestParam String keyword) {}
+
+        @PostMapping("/media-type")
+        public void requireJson(@RequestBody SampleBody body) {}
+
+        @GetMapping("/constraint-violation")
+        public void throwConstraintViolation() {
+            throw new ConstraintViolationException("제약 조건 위반", Set.of());
+        }
+
+        @GetMapping("/data-integrity")
+        public void throwDataIntegrity() {
+            throw new DataIntegrityViolationException("unique constraint violation");
+        }
     }
 
     record SampleBody(@jakarta.validation.constraints.NotBlank String name) {}
@@ -106,5 +126,42 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("지원하지 않는 HTTP 메서드입니다."));
+    }
+
+    @Test
+    @DisplayName("MissingServletRequestParameterException → 400 + '필수 파라미터가 누락되었습니다.'")
+    void handleMissingServletRequestParameter() throws Exception {
+        mockMvc.perform(get("/test/missing-param"))  // keyword 파라미터 없이 요청
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("필수 파라미터가 누락되었습니다: keyword"));
+    }
+
+    @Test
+    @DisplayName("HttpMediaTypeNotSupportedException → 415 + '지원하지 않는 Content-Type입니다.'")
+    void handleHttpMediaTypeNotSupported() throws Exception {
+        mockMvc.perform(post("/test/media-type")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("hello"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("지원하지 않는 Content-Type입니다.")));
+    }
+
+    @Test
+    @DisplayName("ConstraintViolationException → 400")
+    void handleConstraintViolation() throws Exception {
+        mockMvc.perform(get("/test/constraint-violation"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("DataIntegrityViolationException → 409 + '데이터 무결성 제약 조건을 위반했습니다.'")
+    void handleDataIntegrityViolation() throws Exception {
+        mockMvc.perform(get("/test/data-integrity"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("데이터 무결성 제약 조건을 위반했습니다."));
     }
 }
