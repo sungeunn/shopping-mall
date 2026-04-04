@@ -24,7 +24,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.shoppingmall.domain.product.dto.ProductSearchCondition;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -57,6 +60,36 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].name").value("노트북"))
+                .andExpect(jsonPath("$.data.content[0].price").value(1_500_000));
+    }
+
+    @Test
+    @DisplayName("상품 목록 조회 - keyword + category 파라미터 전달 검증")
+    void getProducts_withKeywordAndCategory() throws Exception {
+        given(productService.getProducts(
+                argThat(c -> "노트북".equals(c.keyword()) && "전자기기".equals(c.category())),
+                any(Pageable.class)))
+                .willReturn(new RestPage<>(new PageImpl<>(List.of(createProductResponse()))));
+
+        mockMvc.perform(get("/api/products")
+                        .param("keyword", "노트북")
+                        .param("category", "전자기기"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].name").value("노트북"));
+    }
+
+    @Test
+    @DisplayName("상품 목록 조회 - 가격 범위 파라미터 전달 검증")
+    void getProducts_withPriceRange() throws Exception {
+        given(productService.getProducts(
+                argThat(c -> Integer.valueOf(1_000_000).equals(c.minPrice()) && Integer.valueOf(2_000_000).equals(c.maxPrice())),
+                any(Pageable.class)))
+                .willReturn(new RestPage<>(new PageImpl<>(List.of(createProductResponse()))));
+
+        mockMvc.perform(get("/api/products")
+                        .param("minPrice", "1000000")
+                        .param("maxPrice", "2000000"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].price").value(1_500_000));
     }
 

@@ -54,6 +54,65 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("상품 목록 조회 - keyword + category 동시 검색")
+    void getProducts_keywordAndCategory() {
+        // given
+        Product product = createProduct("게이밍 노트북", 2_500_000, 5);
+        PageRequest pageable = PageRequest.of(0, 20);
+        ProductSearchCondition condition = new ProductSearchCondition("노트북", "전자기기", null, null);
+        given(productRepository.search(condition, pageable))
+                .willReturn(new PageImpl<>(List.of(product)));
+
+        // when
+        Page<ProductResponse> result = productService.getProducts(condition, pageable);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).name()).isEqualTo("게이밍 노트북");
+    }
+
+    @Test
+    @DisplayName("상품 목록 조회 - 가격 범위 검색")
+    void getProducts_priceRange() {
+        // given
+        Product mouse = createProduct("무선 마우스", 50_000, 20);
+        Product shoes = createProduct("운동화", 120_000, 15);
+        PageRequest pageable = PageRequest.of(0, 20);
+        ProductSearchCondition condition = new ProductSearchCondition(null, null, 30_000, 150_000);
+        given(productRepository.search(condition, pageable))
+                .willReturn(new PageImpl<>(List.of(mouse, shoes)));
+
+        // when
+        Page<ProductResponse> result = productService.getProducts(condition, pageable);
+
+        // then
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).extracting(ProductResponse::price)
+                .allSatisfy(price -> {
+                    assertThat(price).isGreaterThanOrEqualTo(30_000);
+                    assertThat(price).isLessThanOrEqualTo(150_000);
+                });
+    }
+
+    @Test
+    @DisplayName("상품 목록 조회 - keyword + category + 가격 범위 복합 검색")
+    void getProducts_combined() {
+        // given
+        Product product = createProduct("노트북", 1_500_000, 10);
+        PageRequest pageable = PageRequest.of(0, 20);
+        ProductSearchCondition condition = new ProductSearchCondition("노트북", "전자기기", 1_000_000, 2_000_000);
+        given(productRepository.search(condition, pageable))
+                .willReturn(new PageImpl<>(List.of(product)));
+
+        // when
+        Page<ProductResponse> result = productService.getProducts(condition, pageable);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).name()).isEqualTo("노트북");
+    }
+
+    @Test
     @DisplayName("상품 조회 - 존재하지 않는 ID")
     void getProduct_notFound() {
         // given
