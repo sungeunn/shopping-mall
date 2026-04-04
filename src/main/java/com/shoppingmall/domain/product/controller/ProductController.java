@@ -2,6 +2,7 @@ package com.shoppingmall.domain.product.controller;
 
 import com.shoppingmall.domain.product.dto.ProductRequest;
 import com.shoppingmall.domain.product.dto.ProductResponse;
+import com.shoppingmall.domain.product.dto.ProductSearchCondition;
 import com.shoppingmall.domain.product.service.ProductService;
 import com.shoppingmall.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,13 +24,16 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @Operation(summary = "상품 목록 조회 (카테고리/검색 필터)")
+    @Operation(summary = "상품 목록 조회 (카테고리/검색어/가격 범위 복합 필터)")
     @GetMapping
     public ApiResponse<Page<ProductResponse>> getProducts(
-            @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return ApiResponse.ok(productService.getProducts(category, keyword, pageable));
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Integer minPrice,
+            @RequestParam(required = false) Integer maxPrice,
+            @PageableDefault(size = 20) Pageable pageable) {
+        ProductSearchCondition condition = new ProductSearchCondition(keyword, category, minPrice, maxPrice);
+        return ApiResponse.ok(productService.getProducts(condition, pageable));
     }
 
     @Operation(summary = "상품 상세 조회")
