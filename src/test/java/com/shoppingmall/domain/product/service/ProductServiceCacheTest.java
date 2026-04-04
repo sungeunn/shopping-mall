@@ -2,8 +2,8 @@ package com.shoppingmall.domain.product.service;
 
 import com.shoppingmall.config.TestSecurityConfig;
 import com.shoppingmall.domain.product.dto.ProductRequest;
+import com.shoppingmall.domain.product.dto.ProductSearchCondition;
 import com.shoppingmall.domain.product.entity.Product;
-import com.shoppingmall.domain.product.entity.ProductStatus;
 import com.shoppingmall.domain.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +29,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -119,14 +118,15 @@ class ProductServiceCacheTest {
         // given
         Pageable pageable = PageRequest.of(0, 20);
         Page<Product> page = new PageImpl<>(List.of(testProduct), pageable, 1);
-        given(productRepository.findByStatus(eq(ProductStatus.ON_SALE), any(Pageable.class))).willReturn(page);
+        ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null);
+        given(productRepository.search(any(ProductSearchCondition.class), any(Pageable.class))).willReturn(page);
 
         // when - 동일 조건으로 두 번 조회
-        productService.getProducts(null, null, pageable);
-        productService.getProducts(null, null, pageable);
+        productService.getProducts(condition, pageable);
+        productService.getProducts(condition, pageable);
 
         // then - DB는 처음 한 번만 호출
-        verify(productRepository, times(1)).findByStatus(eq(ProductStatus.ON_SALE), any(Pageable.class));
+        verify(productRepository, times(1)).search(any(ProductSearchCondition.class), any(Pageable.class));
     }
 
     @Test
@@ -135,17 +135,18 @@ class ProductServiceCacheTest {
         // given
         Pageable pageable = PageRequest.of(0, 20);
         Page<Product> page = new PageImpl<>(List.of(testProduct), pageable, 1);
-        given(productRepository.findByStatus(eq(ProductStatus.ON_SALE), any(Pageable.class))).willReturn(page);
+        ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null);
+        given(productRepository.search(any(ProductSearchCondition.class), any(Pageable.class))).willReturn(page);
         given(productRepository.save(any(Product.class))).willReturn(testProduct);
 
         ProductRequest newProduct = new ProductRequest("마우스", "무선 마우스", 50_000, 20, "전자기기", null);
 
         // when
-        productService.getProducts(null, null, pageable); // 1회 DB 조회 + 캐시 저장
-        productService.createProduct(newProduct);          // 캐시 무효화
-        productService.getProducts(null, null, pageable); // 캐시 없음 → 2회 DB 조회
+        productService.getProducts(condition, pageable); // 1회 DB 조회 + 캐시 저장
+        productService.createProduct(newProduct);         // 캐시 무효화
+        productService.getProducts(condition, pageable); // 캐시 없음 → 2회 DB 조회
 
         // then
-        verify(productRepository, times(2)).findByStatus(eq(ProductStatus.ON_SALE), any(Pageable.class));
+        verify(productRepository, times(2)).search(any(ProductSearchCondition.class), any(Pageable.class));
     }
 }

@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -51,7 +50,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("상품 목록 조회 - 200 반환")
     void getProducts_success() throws Exception {
-        given(productService.getProducts(isNull(), isNull(), any(Pageable.class)))
+        given(productService.getProducts(any(), any(Pageable.class)))
                 .willReturn(new RestPage<>(new PageImpl<>(List.of(createProductResponse()))));
 
         mockMvc.perform(get("/api/products"))

@@ -2,6 +2,7 @@ package com.shoppingmall.domain.product.service;
 
 import com.shoppingmall.domain.product.dto.ProductRequest;
 import com.shoppingmall.domain.product.dto.ProductResponse;
+import com.shoppingmall.domain.product.dto.ProductSearchCondition;
 import com.shoppingmall.domain.product.entity.Product;
 import com.shoppingmall.domain.product.entity.ProductStatus;
 import com.shoppingmall.domain.product.repository.ProductRepository;
@@ -12,11 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -25,24 +24,14 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    // category, keyword, 페이지 번호/크기를 조합한 키로 캐싱
-    // 예: "all_all_0_20", "전자기기_all_0_20", "all_노트북_0_20"
+    // 검색 조건 조합을 캐시 키로 사용
+    // 예: "all_all_0_0_20", "전자기기_노트북_10000_500000_0_20"
     @Cacheable(
             value = "products",
-            key = "(#category ?: 'all') + '_' + (#keyword ?: 'all') + '_' + #pageable.pageNumber + '_' + #pageable.pageSize"
+            key = "(#condition.keyword() ?: 'all') + '_' + (#condition.category() ?: 'all') + '_' + (#condition.minPrice() ?: 0) + '_' + (#condition.maxPrice() ?: 0) + '_' + #pageable.pageNumber + '_' + #pageable.pageSize"
     )
-    public RestPage<ProductResponse> getProducts(String category, String keyword, Pageable pageable) {
-        Page<Product> products;
-
-        if (StringUtils.hasText(keyword)) {
-            products = productRepository.findByStatusAndNameContaining(ProductStatus.ON_SALE, keyword, pageable);
-        } else if (StringUtils.hasText(category)) {
-            products = productRepository.findByStatusAndCategoryContaining(ProductStatus.ON_SALE, category, pageable);
-        } else {
-            products = productRepository.findByStatus(ProductStatus.ON_SALE, pageable);
-        }
-
-        return new RestPage<>(products.map(ProductResponse::from));
+    public RestPage<ProductResponse> getProducts(ProductSearchCondition condition, Pageable pageable) {
+        return new RestPage<>(productRepository.search(condition, pageable).map(ProductResponse::from));
     }
 
     @Cacheable(value = "product", key = "#id")

@@ -2,6 +2,7 @@ package com.shoppingmall.domain.product.service;
 
 import com.shoppingmall.domain.product.dto.ProductRequest;
 import com.shoppingmall.domain.product.dto.ProductResponse;
+import com.shoppingmall.domain.product.dto.ProductSearchCondition;
 import com.shoppingmall.domain.product.entity.Product;
 import com.shoppingmall.domain.product.entity.ProductStatus;
 import com.shoppingmall.domain.product.repository.ProductRepository;
@@ -40,11 +41,12 @@ class ProductServiceTest {
         // given
         Product product = createProduct("노트북", 1_500_000, 10);
         PageRequest pageable = PageRequest.of(0, 20);
-        given(productRepository.findByStatus(ProductStatus.ON_SALE, pageable))
+        ProductSearchCondition condition = new ProductSearchCondition(null, null, null, null);
+        given(productRepository.search(condition, pageable))
                 .willReturn(new PageImpl<>(List.of(product)));
 
         // when
-        Page<ProductResponse> result = productService.getProducts(null, null, pageable);
+        Page<ProductResponse> result = productService.getProducts(condition, pageable);
 
         // then
         assertThat(result.getContent()).hasSize(1);
