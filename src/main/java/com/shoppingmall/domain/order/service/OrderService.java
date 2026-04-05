@@ -48,6 +48,11 @@ public class OrderService {
             Product product = productRepository.findByIdWithPessimisticLock(itemReq.productId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
 
+            // 결제 금액 검증: 클라이언트가 본 가격 vs 서버 실제 가격
+            if (product.getPrice() != itemReq.unitPrice()) {
+                throw new BusinessException(ErrorCode.PRICE_MISMATCH);
+            }
+
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
                     .product(product)
