@@ -26,6 +26,7 @@ public enum ErrorCode {
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
     ORDER_CANNOT_BE_CANCELLED(HttpStatus.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."),
     ORDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 주문에 접근 권한이 없습니다."),
+    PRICE_MISMATCH(HttpStatus.CONFLICT, "상품 가격이 변경되었습니다. 최신 가격을 확인 후 다시 주문해주세요."),
 
     // Cart
     CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장바구니에 해당 상품이 없습니다."),

@@ -22,6 +22,7 @@ public record OrderRequest(
 ) {
     public record OrderItemRequest(
             @NotNull Long productId,
-            @NotNull @Min(1) Integer quantity
+            @NotNull @Min(1) Integer quantity,
+            @NotNull @Min(0) Integer unitPrice  // 클라이언트가 확인한 단가 — 서버 실제 가격과 대조
     ) {}
 }

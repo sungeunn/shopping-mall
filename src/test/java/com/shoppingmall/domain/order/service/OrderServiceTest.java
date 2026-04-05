@@ -79,7 +79,7 @@ class OrderServiceTest {
     void createOrder_success() {
         // given
         OrderRequest request = new OrderRequest(
-                List.of(new OrderRequest.OrderItemRequest(1L, 2)),
+                List.of(new OrderRequest.OrderItemRequest(1L, 2, 1_500_000)),
                 "홍길동", "010-1234-5678", "서울시 강남구"
         );
 
@@ -97,6 +97,24 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문 생성 실패 - 가격 불일치 (클라이언트 가격 != 서버 실제 가격)")
+    void createOrder_priceMismatch() {
+        // given - 클라이언트가 999,000원으로 알고 있지만 실제 가격은 1,500,000원
+        OrderRequest request = new OrderRequest(
+                List.of(new OrderRequest.OrderItemRequest(1L, 1, 999_000)),
+                "홍길동", "010-1234-5678", "서울시 강남구"
+        );
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+        given(productRepository.findByIdWithPessimisticLock(1L)).willReturn(Optional.of(testProduct));
+
+        // when & then
+        assertThatThrownBy(() -> orderService.createOrder(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.PRICE_MISMATCH.getMessage());
+    }
+
+    @Test
     @DisplayName("주문 생성 실패 - 재고 부족")
     void createOrder_insufficientStock() {
         // given
@@ -104,7 +122,7 @@ class OrderServiceTest {
                 .name("노트북").description("설명").price(1_500_000).stock(1).category("전자기기").build();
 
         OrderRequest request = new OrderRequest(
-                List.of(new OrderRequest.OrderItemRequest(1L, 5)),
+                List.of(new OrderRequest.OrderItemRequest(1L, 5, 1_500_000)),
                 "홍길동", "010-1234-5678", "서울시 강남구"
         );
 

@@ -92,7 +92,7 @@ class StockConcurrencyTest {
                 try {
                     startLatch.await(); // 모든 스레드가 여기서 대기 → countDown() 호출 시 동시 출발
                     OrderRequest request = new OrderRequest(
-                            List.of(new OrderRequest.OrderItemRequest(product.getId(), 1)),
+                            List.of(new OrderRequest.OrderItemRequest(product.getId(), 1, product.getPrice())),
                             "홍길동", "010-1234-5678", "서울시 강남구"
                     );
                     orderService.createOrder(testUser.getId(), request);
@@ -135,7 +135,7 @@ class StockConcurrencyTest {
                 try {
                     startLatch.await();
                     OrderRequest request = new OrderRequest(
-                            List.of(new OrderRequest.OrderItemRequest(product.getId(), 1)),
+                            List.of(new OrderRequest.OrderItemRequest(product.getId(), 1, product.getPrice())),
                             "홍길동", "010-1234-5678", "서울시 강남구"
                     );
                     orderService.createOrder(testUser.getId(), request);
