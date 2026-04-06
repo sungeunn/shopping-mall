@@ -161,9 +161,24 @@ class AuthControllerTest {
     @DisplayName("로그아웃 성공 - 200 반환")
     @WithMockUser
     void logout_success() throws Exception {
-        mockMvc.perform(post("/api/auth/logout"))
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer validAccessToken"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("로그아웃되었습니다."));
+    }
+
+    @Test
+    @DisplayName("로그인 실패 - 5회 초과 계정 잠금 (429)")
+    void login_lockedAccount() throws Exception {
+        LoginRequest request = new LoginRequest("test@test.com", "Test1234!@");
+        given(authService.login(any())).willThrow(new BusinessException(ErrorCode.LOGIN_ATTEMPT_EXCEEDED));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(ErrorCode.LOGIN_ATTEMPT_EXCEEDED.getMessage()));
     }
 }
