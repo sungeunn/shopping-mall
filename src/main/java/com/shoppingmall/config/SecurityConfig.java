@@ -41,6 +41,7 @@ public class SecurityConfig {
                 // 공개 엔드포인트
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products/*/reviews").permitAll()
                     .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/h2-console/**").permitAll()
                 // 관리자 전용
                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")

@@ -29,6 +29,11 @@ public enum ErrorCode {
     ORDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 주문에 접근 권한이 없습니다."),
     PRICE_MISMATCH(HttpStatus.CONFLICT, "상품 가격이 변경되었습니다. 최신 가격을 확인 후 다시 주문해주세요."),
 
+    // Review
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 리뷰를 작성한 주문입니다."),
+    ORDER_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "배송 완료된 주문에만 리뷰를 작성할 수 있습니다."),
+    PRODUCT_NOT_IN_ORDER(HttpStatus.BAD_REQUEST, "해당 주문에 포함되지 않은 상품입니다."),
+
     // Cart
     CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장바구니에 해당 상품이 없습니다."),
     CART_EMPTY(HttpStatus.BAD_REQUEST, "장바구니가 비어있습니다."),
