@@ -1,11 +1,8 @@
 version: '3.8'
 
-# 로컬 개발용 — MySQL + Redis만 실행
-# 앱은 IDE에서 직접 실행: SPRING_PROFILES_ACTIVE=docker ./gradlew bootRun
-#
-# 실행: docker-compose up -d
-# 종료: docker-compose down
-# 데이터 포함 삭제: docker-compose down -v
+# 전체 스택 실행용 (앱 포함)
+# 실행: docker-compose -f docker-compose.prod.yml up -d
+# JWT_SECRET 환경변수 필수: JWT_SECRET=your-secret docker-compose -f docker-compose.prod.yml up -d
 
 services:
   mysql:
@@ -38,6 +35,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  app:
+    build: .
+    container_name: shopping-mall-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: shoppingmall
+      DB_USERNAME: appuser
+      DB_PASSWORD: apppassword
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    ports:
+      - "8080:8080"
+    restart: on-failure
 
 volumes:
   mysql-data:
