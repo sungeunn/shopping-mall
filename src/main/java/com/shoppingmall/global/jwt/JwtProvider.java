@@ -69,6 +69,11 @@ public class JwtProvider {
         return parseClaims(token).get("role", String.class);
     }
 
+    public long getRemainingExpiration(String token) {
+        Date expiration = parseClaims(token).getExpiration();
+        return expiration.getTime() - System.currentTimeMillis();
+    }
+
     private String buildToken(Long userId, String email, String role, long expiration) {
         return Jwts.builder()
                 .subject(String.valueOf(userId))

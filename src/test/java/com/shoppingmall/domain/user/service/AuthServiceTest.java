@@ -113,6 +113,7 @@ class AuthServiceTest {
     void login_emailNotFound() {
         // given
         LoginRequest request = new LoginRequest("none@test.com", "Test1234!@");
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(userRepository.findByEmail(request.email())).willReturn(Optional.empty());
 
         // when & then
@@ -126,6 +127,7 @@ class AuthServiceTest {
     void login_passwordMismatch() {
         // given
         LoginRequest request = new LoginRequest("test@test.com", "wrongPassword");
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(userRepository.findByEmail(request.email())).willReturn(Optional.of(testUser));
         given(passwordEncoder.matches(request.password(), testUser.getPassword())).willReturn(false);
 
@@ -208,15 +210,52 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("로그아웃 성공 - Redis에서 Refresh Token 삭제")
+    @DisplayName("로그아웃 성공 - Refresh Token 삭제 + Access Token 블랙리스트 등록")
     void logout_success() {
         // given
         Long userId = 1L;
+        String accessToken = "validAccessToken";
+        given(jwtProvider.getRemainingExpiration(accessToken)).willReturn(3_600_000L); // 1시간
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
         // when
-        authService.logout(userId);
+        authService.logout(userId, accessToken);
 
         // then
         verify(redisTemplate).delete("refresh:" + userId);
+        verify(valueOperations).set(eq("blacklist:" + accessToken), eq("logout"), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("로그인 실패 - 5회 초과 시 계정 잠금")
+    void login_lockedAccount() {
+        // given
+        LoginRequest request = new LoginRequest("test@test.com", "wrongPassword");
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.get("login:fail:" + request.email())).willReturn("5");
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.LOGIN_ATTEMPT_EXCEEDED.getMessage());
+    }
+
+    @Test
+    @DisplayName("로그인 성공 시 실패 횟수 초기화")
+    void login_successClearsFailCount() {
+        // given
+        LoginRequest request = new LoginRequest("test@test.com", "Test1234!@");
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.get("login:fail:" + request.email())).willReturn(null);
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(testUser));
+        given(passwordEncoder.matches(request.password(), testUser.getPassword())).willReturn(true);
+        given(jwtProvider.createAccessToken(any(), any(), any())).willReturn("accessToken");
+        given(jwtProvider.createRefreshToken(any())).willReturn("refreshToken");
+
+        // when
+        authService.login(request);
+
+        // then
+        verify(redisTemplate).delete("login:fail:" + request.email());
     }
 }

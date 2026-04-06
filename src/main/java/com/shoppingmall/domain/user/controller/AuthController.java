@@ -49,8 +49,11 @@ public class AuthController {
 
     @Operation(summary = "로그아웃")
     @PostMapping("/logout")
-    public ApiResponse<Void> logout(@AuthenticationPrincipal Long userId) {
-        authService.logout(userId);
+    public ApiResponse<Void> logout(
+            @AuthenticationPrincipal Long userId,
+            @RequestHeader("Authorization") String authorization) {
+        String accessToken = authorization.substring("Bearer ".length());
+        authService.logout(userId, accessToken);
         return ApiResponse.ok("로그아웃되었습니다.");
     }
 }

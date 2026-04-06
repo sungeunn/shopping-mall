@@ -28,6 +28,10 @@ public class AuthService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh:";
+    private static final String BLACKLIST_PREFIX = "blacklist:";
+    private static final String LOGIN_FAIL_PREFIX = "login:fail:";
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOCK_DURATION_MINUTES = 10;
 
     @Transactional
     public void signup(SignupRequest request) {
@@ -48,17 +52,30 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
+        // 로그인 실패 횟수 초과 확인
+        String failKey = LOGIN_FAIL_PREFIX + request.email();
+        String countStr = redisTemplate.opsForValue().get(failKey);
+        if (countStr != null && Long.parseLong(countStr) >= MAX_LOGIN_ATTEMPTS) {
+            throw new BusinessException(ErrorCode.LOGIN_ATTEMPT_EXCEEDED);
+        }
+
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            Long newCount = redisTemplate.opsForValue().increment(failKey);
+            if (newCount != null && newCount == 1) {
+                redisTemplate.expire(failKey, LOCK_DURATION_MINUTES, TimeUnit.MINUTES);
+            }
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
+
+        // 로그인 성공 시 실패 횟수 초기화
+        redisTemplate.delete(failKey);
 
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = jwtProvider.createRefreshToken(user.getId());
 
-        // Redis에 refreshToken 저장 (7일)
         redisTemplate.opsForValue().set(
                 REFRESH_TOKEN_PREFIX + user.getId(),
                 refreshToken,
@@ -101,7 +118,19 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(Long userId) {
+    public void logout(Long userId, String accessToken) {
+        // Refresh Token 삭제
         redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);
+
+        // Access Token 블랙리스트 등록 (남은 만료 시간 동안 유지)
+        long remaining = jwtProvider.getRemainingExpiration(accessToken);
+        if (remaining > 0) {
+            redisTemplate.opsForValue().set(
+                    BLACKLIST_PREFIX + accessToken,
+                    "logout",
+                    remaining,
+                    TimeUnit.MILLISECONDS
+            );
+        }
     }
 }
