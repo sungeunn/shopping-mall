@@ -3,6 +3,9 @@ package com.shoppingmall.global.aop;
 import com.shoppingmall.config.TestSecurityConfig;
 import com.shoppingmall.domain.product.service.ProductService;
 import com.shoppingmall.global.cache.RestPage;
+import com.shoppingmall.global.exception.BusinessException;
+import com.shoppingmall.global.exception.ErrorCode;
+import com.shoppingmall.global.filter.RequestIdFilter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +21,11 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = com.shoppingmall.domain.product.controller.ProductController.class)
-@Import({TestSecurityConfig.class, LoggingAspect.class})
+@Import({TestSecurityConfig.class, LoggingAspect.class, RequestIdFilter.class})
 class LoggingAspectTest {
 
     @Autowired
@@ -31,6 +35,17 @@ class LoggingAspectTest {
     private ProductService productService;
 
     @Test
+    @DisplayName("API 응답 헤더에 X-Request-Id 포함")
+    @WithMockUser
+    void responseIncludesRequestId() throws Exception {
+        given(productService.getProducts(any(), any())).willReturn(new RestPage<>(new PageImpl<>(List.of())));
+
+        mockMvc.perform(get("/api/products"))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Request-Id"));
+    }
+
+    @Test
     @DisplayName("인증된 사용자 API 호출 시 로그에 userId 기록")
     @WithMockUser(username = "1")
     void logsAuthenticatedUserId() throws Exception {
@@ -38,7 +53,7 @@ class LoggingAspectTest {
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk());
-        // 로그 출력 확인은 콘솔에서 "[API] userId=1 method=GET uri=/api/products" 형태로 확인
+        // 콘솔 로그: [API] requestId=... userId=1 method=GET uri=/api/products time=...ms status=SUCCESS
     }
 
     @Test
@@ -48,7 +63,7 @@ class LoggingAspectTest {
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk());
-        // 로그 출력 확인은 콘솔에서 "[API] userId=anonymous ..." 형태로 확인
+        // 콘솔 로그: [API] requestId=... userId=anonymous ...
     }
 
     @Test
@@ -56,11 +71,10 @@ class LoggingAspectTest {
     @WithMockUser
     void logsFailedStatusOnException() throws Exception {
         given(productService.getProducts(any(), any()))
-                .willThrow(new com.shoppingmall.global.exception.BusinessException(
-                        com.shoppingmall.global.exception.ErrorCode.PRODUCT_NOT_FOUND));
+                .willThrow(new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isNotFound());
-        // 로그 출력 확인은 콘솔에서 "[API] ... status=FAILED error=DB error" 형태로 확인
+        // 콘솔 로그: [API] requestId=... status=FAILED error=상품을 찾을 수 없습니다.
     }
 }
